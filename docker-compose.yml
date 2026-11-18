@@ -1,0 +1,29 @@
+name: ai-tdd-demo
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: ai-tdd-demo-mysql
+    restart: unless-stopped
+    ports:
+      # 只綁 127.0.0.1：只有本機連得到
+      - "127.0.0.1:${DB_PORT:-3317}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      TZ: Asia/Taipei
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      # 第一次初始化（建 data files、跑 init）在負載高的機器上可能超過 1 分鐘
+      start_period: 180s
+
+volumes:
+  mysql_data:

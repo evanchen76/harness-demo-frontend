@@ -1,0 +1,11 @@
+# 測試連 shop（./dev.sh test 會先清空重建）；每個測試開始前再由 fixtures/common/cleanup.sql 清空
+spring:
+  main:
+    banner-mode: off
+  datasource:
+    url: jdbc:mysql://127.0.0.1:${DB_PORT:3317}/shop?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Taipei&allowPublicKeyRetrieval=true&useSSL=false
+
+# 測試輸出只留警告以上，紅燈 / 綠燈結果比較好讀
+logging:
+  level:
+    root: WARN

@@ -1,0 +1,70 @@
+{
+  "說明": "全部功能的清單。一筆一個功能：id 與 docs/test-cases/<id>.md 檔名相同；verification 是怎麼驗（測案檔）；evidence 是驗的證據（測試類別）。status 由 ./dev.sh check 依測試結果更新，不要手改：not_started（還沒有測試）/ active（有測試、還沒全綠）/ passing（每個測案都有測試而且全綠）。測案階段寫測案時加一筆。",
+  "features": [
+    {
+      "id": "product-create",
+      "name": "新增商品",
+      "description": "後台新增一筆商品，新增後固定是草稿、庫存 0",
+      "dependencies": [],
+      "status": "passing",
+      "verification": "docs/test-cases/product-create.md",
+      "evidence": "ProductCreateApiTest"
+    },
+    {
+      "id": "product-update",
+      "name": "編輯商品",
+      "description": "後台修改既有商品，只改有傳的欄位；sku、庫存、狀態不能改",
+      "dependencies": [
+        "product-create"
+      ],
+      "status": "passing",
+      "verification": "docs/test-cases/product-update.md",
+      "evidence": "ProductUpdateApiTest"
+    },
+    {
+      "id": "product-on-shelf",
+      "name": "商品上架",
+      "description": "後台把草稿或已下架商品上架，上架前檢查資料完整、價格與庫存合理、分類可用",
+      "dependencies": [
+        "product-create"
+      ],
+      "status": "passing",
+      "verification": "docs/test-cases/product-on-shelf.md",
+      "evidence": "ProductOnShelfApiTest"
+    },
+    {
+      "id": "product-stock-adjust",
+      "name": "商品調整庫存",
+      "description": "後台增減單一商品庫存並留紀錄；扣到 0 自動售罄，補貨自動回到上架中",
+      "dependencies": [
+        "product-create",
+        "product-on-shelf"
+      ],
+      "status": "passing",
+      "verification": "docs/test-cases/product-stock-adjust.md",
+      "evidence": "ProductStockAdjustApiTest"
+    },
+    {
+      "id": "product-list",
+      "name": "商品列表",
+      "description": "後台列出全部商品，不分頁，依 id 由小到大",
+      "dependencies": [
+        "product-create"
+      ],
+      "status": "passing",
+      "verification": "docs/test-cases/product-list.md",
+      "evidence": "ProductListApiTest"
+    },
+    {
+      "id": "storefront-product-browse",
+      "name": "前台商品展示",
+      "description": "消費者不用登入瀏覽商品列表與詳情，只看得到上架中且分類啟用的商品",
+      "dependencies": [
+        "product-on-shelf"
+      ],
+      "status": "passing",
+      "verification": "docs/test-cases/storefront-product-browse.md",
+      "evidence": "StorefrontProductBrowseApiTest"
+    }
+  ]
+}

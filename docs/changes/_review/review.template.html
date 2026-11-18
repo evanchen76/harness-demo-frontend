@@ -1,0 +1,71 @@
+<!doctype html>
+<!-- review 頁範本：回報階段時複製成 docs/changes/<slug>/review.html，把 < > 的地方換掉。
+     欄位說明在 review.js 開頭；測試數、完成標準、決策、migration 的 SQL 由頁面自己讀檔，不要抄進來。 -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><需求名稱> review</title>
+<link rel="stylesheet" href="../_review/review.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="../_review/review.js"></script>
+<script>
+// 重複用到的預期結果先取名字
+const ok = { status: 200, code: 'OK' };
+const NOT_FOUND = { status: 404, code: '<錯誤的 code>' };
+
+reviewPage({
+  slug: '<slug>',
+  title: '<需求名稱>',
+  testClass: '<Feature>ApiTest',
+  summary: [
+    '<做了什麼，一段一句，兩三句就好>',
+  ],
+  // 需要你判斷的事。kind：核准後變動／沒辦法驗／只有自動測試／其他。沒有就空陣列
+  attention: [
+    { kind: '只有自動測試', title: '<一句話標題>', body: '<哪個情境親手試驗不到、為什麼>' },
+  ],
+  // 既有 API 的回應或行為變了什麼；沒有就空陣列
+  apiChanges: [
+    // { endpoint: 'GET /api/xxx', change: '<變了什麼，舊呼叫端會不會受影響>' },
+  ],
+  // 親手試：每個完成標準至少一個步驟；整頁要能重跑（不能重複的值用 {{rand}}）
+  groups: [
+    {
+      title: '<成功情境>',
+      note: '<這一組的前提，例如用到 seed 的哪一筆>',
+      steps: [
+        {
+          title: '<步驟名稱>', covers: ['D1'],
+          why: '<為什麼挑這個情境>',
+          method: 'GET', path: '/api/<path>',
+          // body: { name: '試用-{{rand}}' },
+          expect: [ok],
+          checks: [
+            { label: '<要確認的事>', test: j => Array.isArray(j.data) },
+          ],
+        },
+      ],
+    },
+    {
+      title: '失敗情境',
+      steps: [
+        { title: '<步驟名稱>', covers: ['D2'], method: 'GET', path: '/api/<path>/999999', expect: [NOT_FOUND] },
+      ],
+    },
+  ],
+  // 改的檔案分組列出，每個檔一句說明
+  changes: [
+    { title: '規格與測案', files: [{ path: 'docs/api/openapi.yaml', note: '<改了什麼>' }] },
+    { title: '程式', files: [{ path: 'src/main/java/...', note: '<改了什麼>' }] },
+    { title: '測試', files: [{ path: 'src/test/java/...', note: '<改了什麼>' }] },
+  ],
+  migrations: [],   // 例如 ['V2__add_product_brand.sql']
+  deploy: [],       // 上線要注意的事
+  findings: [],     // 範圍外發現、沒動手的事
+});
+</script>
+</body>
+</html>

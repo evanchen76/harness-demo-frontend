@@ -1,0 +1,11 @@
+-- storefront-product-browse TC19：名稱搜尋
+-- Given 四個 ON_SHELF：Apple 手機、蘋果 apple 充電線、香蕉、APPLE
+INSERT INTO category (id, name, enabled) VALUES (100, '測試分類', 1);
+INSERT INTO product (id, sku, name, category_id, price, cost_price, stock, main_image_url, description, status, on_shelf_time)
+VALUES (101, 'TEST-S-101', 'Apple 手機', 100, 100.00, 50.00, 20, 'https://img.example.com/101.jpg', '描述101', 'ON_SHELF', '2026-11-01 10:00:00');
+INSERT INTO product (id, sku, name, category_id, price, cost_price, stock, main_image_url, description, status, on_shelf_time)
+VALUES (102, 'TEST-S-102', '蘋果 apple 充電線', 100, 100.00, 50.00, 20, 'https://img.example.com/102.jpg', '描述102', 'ON_SHELF', '2026-11-01 10:00:00');
+INSERT INTO product (id, sku, name, category_id, price, cost_price, stock, main_image_url, description, status, on_shelf_time)
+VALUES (103, 'TEST-S-103', '香蕉', 100, 100.00, 50.00, 20, 'https://img.example.com/103.jpg', '描述103', 'ON_SHELF', '2026-11-01 10:00:00');
+INSERT INTO product (id, sku, name, category_id, price, cost_price, stock, main_image_url, description, status, on_shelf_time)
+VALUES (104, 'TEST-S-104', 'APPLE', 100, 100.00, 50.00, 20, 'https://img.example.com/104.jpg', '描述104', 'ON_SHELF', '2026-11-01 10:00:00');

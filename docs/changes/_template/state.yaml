@@ -1,0 +1,20 @@
+# 這個需求的進度。AI 每完成一個階段就更新；新 session 從 current 與 handoff 接著做。
+# status：in_progress / waiting_review / done
+# current：1-clarify 釐清 / 2-spec 規格 / 3-cases 測案 / 4-approve 規格核准 / 5-red 測試紅燈 / 6-green 實作綠燈 / 7-report 回報（做法見 docs/guide/workflow.md）
+change: <slug>
+title: <需求名稱>
+created: <YYYY-MM-DD>
+status: in_progress
+current: 1-clarify
+# 以下三個 key 用不到就不要寫（做法見 workflow.md「需求多大：拆需求與分步驟」）：
+# plan: <name>             # 這個需求屬於哪份清單 docs/changes/_plan/<name>.md；單獨的需求不寫
+# step: 1                 # 有分步驟時，綠燈階段現在做第幾步
+# steps:                 # 釐清階段訂、規格核准回報時列出；之後要調整先問使用者。一步一個 feature
+#   1: <這一步的名稱>｜D1 D2 D3
+#   2: <這一步的名稱>｜D4 D5
+
+handoff:                   # 每一輪結束時更新，假設下一個 session 什麼都不記得
+  updated: null            # YYYY-MM-DD HH:MM
+  branch: null             # 這個需求在哪個分支上做
+  next: null               # 下一步具體要做什麼（哪個檔、哪個測案），不是「繼續做」
+  note: null               # 只寫別處看不出來的事：等使用者回答什麼、試過什麼為什麼放棄；沒有就 null

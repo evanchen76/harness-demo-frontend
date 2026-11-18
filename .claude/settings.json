@@ -1,0 +1,63 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./dev.sh:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Bash(docker:*)",
+      "Bash(mysql:*)",
+      "Bash(curl:*)",
+      "Bash(mvn:*)",
+      "Edit(./scripts/**)",
+      "Write(./scripts/**)",
+      "Read(./.env)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "WebFetch",
+      "Edit(./docker-compose.yml)",
+      "Write(./docker-compose.yml)",
+      "Edit(./db/init/**)",
+      "Write(./db/init/**)",
+      "Bash(./dev.sh approve:*)",
+      "Bash(*spec-approve.sh*)",
+      "Edit(./docs/changes/**/spec.approved)",
+      "Write(./docs/changes/**/spec.approved)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && echo '開工前先跑 ./dev.sh check，紅燈就先回報、不要動功能程式碼。有進行中的需求就照 docs/guide/workflow.md 的階段表從 current 接著做：' && ./dev.sh in-progress"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/spec-approve.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/spec-gate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

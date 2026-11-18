@@ -1,0 +1,20 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: ai-tdd-demo
+  datasource:
+    # 只連本機 docker 的 MySQL；app_user 只有 DML 權限。密碼由 ./dev.sh 從 .env 帶入
+    url: jdbc:mysql://127.0.0.1:${DB_PORT:3317}/shop?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Taipei&allowPublicKeyRetrieval=true&useSSL=false
+    username: app_user
+    password: ${APP_DB_PASSWORD}
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Taipei
+
+mybatis-plus:
+  global-config:
+    banner: false
+  configuration:
+    map-underscore-to-camel-case: true

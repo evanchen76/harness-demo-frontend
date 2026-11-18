@@ -1,0 +1,12 @@
+# 這個需求的進度。AI 每完成一個階段就更新；新 session 從 current 與 handoff 接著做。
+# status：in_progress / waiting_review / done
+# current：1-clarify 釐清 / 2-spec 規格 / 3-cases 測案 / 4-approve 規格核准 / 5-red 測試紅燈 / 6-green 實作綠燈 / 7-report 回報（做法見 docs/guide/workflow.md）
+change: product-list
+title: 商品列表
+created: 2026-11-15
+status: done
+current: 7-report
+
+handoff:                   # 每一輪結束時更新，假設下一個 session 什麼都不記得
+  updated: "2026-11-16 00:40" # YYYY-MM-DD HH:MM
+  note: "回報完成，等使用者決定怎麼合併（尚未 commit、未 push）。D5「不接受篩選或分頁參數」為人工確認" # 只寫別處看不出來的事：等使用者回答什麼、試過什麼為什麼放棄；沒有就 null

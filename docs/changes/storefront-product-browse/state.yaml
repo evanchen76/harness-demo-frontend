@@ -1,0 +1,12 @@
+# 這個需求的進度。AI 每完成一個階段就更新；新 session 從 current 與 handoff 接著做。
+# status：in_progress / waiting_review / done
+# current：1-clarify 釐清 / 2-spec 規格 / 3-cases 測案 / 4-approve 規格核准 / 5-red 測試紅燈 / 6-green 實作綠燈 / 7-report 回報（做法見 docs/guide/workflow.md）
+change: storefront-product-browse
+title: 前台商品展示
+created: 2026-11-16
+status: done
+current: 7-report
+
+handoff:                   # 每一輪結束時更新，假設下一個 session 什麼都不記得
+  updated: 2026-11-16 10:31
+  note: 已合併進 main（使用者要求），沒有 push

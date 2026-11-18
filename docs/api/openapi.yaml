@@ -1,0 +1,649 @@
+# 全專案唯一的 API 規格。新增或修改 API 時，先改這裡（規格階段），再寫測試與實作。
+# 測試會用這份規格驗證每一個 MockMvc 請求與回應（見 OpenApiValidationConfig），規格與實作不一致測試就失敗。
+openapi: 3.0.3
+info:
+  title: ai-tdd-demo 電商後台
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8090
+
+paths:
+  /api/admin/products:
+    get:
+      summary: 商品列表
+      description: |
+        回傳全部商品，不分頁，依 id 由小到大；沒有商品時 data 為空陣列。
+        不需要 X-Operator，不接受篩選或分頁參數；唯讀，不改動 DB。
+        每筆只含列表欄位，不含 description、costPrice、createTime。
+        中文欄位標題與狀態顯示由前端處理，這裡只回英文 key 與 status 代碼。
+      operationId: listProducts
+      responses:
+        '200':
+          description: 成功，data 為商品陣列（可為空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+
+    post:
+      summary: 新增商品
+      description: |
+        新增一筆商品，固定是 DRAFT、stock 為 0；成功回 201。
+        檢查順序（回傳第一個不通過的）：X-Operator → 請求內容 → 分類存在 → 分類啟用 → sku 不重複（DB 唯一鍵同樣擋，回同一個錯誤）。
+      operationId: createProduct
+      parameters:
+        - $ref: '#/components/parameters/Operator'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreateRequest'
+      responses:
+        '201':
+          description: 成功，data 為新增的商品
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: |
+            INVALID_REQUEST（缺少 X-Operator）、PRODUCT_FIELD_INVALID（缺 sku、categoryId 或 price，
+            或欄位格式、長度、數值不合）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '409':
+          description: sku 已存在（PRODUCT_SKU_DUPLICATE）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '422':
+          description: CATEGORY_NOT_FOUND、CATEGORY_DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/admin/products/{id}:
+    get:
+      summary: 查詢商品
+      operationId: getProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: 編輯商品
+      description: |
+        只改有傳的欄位；DRAFT、ON_SHELF、OFF_SHELF、SOLD_OUT 都可以編輯，狀態與庫存不變。
+        ON_SHELF 的商品編輯後必須仍符合上架條件（資料完整、price > 0 且 price >= costPrice、分類存在且啟用）。
+        檢查順序（回傳第一個不通過的）：X-Operator → 商品存在 → 請求內容 → 換分類時分類存在、啟用 → 上架條件（僅 ON_SHELF）。
+      operationId: updateProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Operator'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdateRequest'
+      responses:
+        '200':
+          description: 成功，data 為編輯後的商品
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: |
+            INVALID_REQUEST（缺少 X-Operator）、PRODUCT_FIELD_INVALID（帶了 sku、stock、status 等不可編輯欄位、
+            沒有任何可編輯欄位、欄位格式、長度、數值不合、categoryId 或 price 傳 null）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: 商品不存在（PRODUCT_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '422':
+          description: |
+            CATEGORY_NOT_FOUND、CATEGORY_DISABLED；ON_SHELF 商品編輯後不符合上架條件：
+            PRODUCT_INFO_INCOMPLETE（name、mainImageUrl、description 缺少或空白）、
+            PRODUCT_PRICE_INVALID（price <= 0 或 price < costPrice）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/admin/products/{id}/on-shelf:
+    post:
+      summary: 上架商品
+      description: |
+        把 DRAFT 或 OFF_SHELF 的商品上架：status 改為 ON_SHELF、on_shelf_time 設為現在。
+        檢查順序（回傳第一個不通過的）：X-Operator → 商品存在 → 狀態 → 資料完整 → 價格 → 庫存 → 分類存在 → 分類啟用。
+      operationId: putProductOnShelf
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Operator'
+      responses:
+        '200':
+          description: 成功，data 為上架後的商品
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: 缺少 X-Operator（INVALID_REQUEST）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: 商品不存在（PRODUCT_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '409':
+          description: 商品已上架（PRODUCT_ALREADY_ON_SHELF）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '422':
+          description: |
+            不符合上架條件：PRODUCT_INFO_INCOMPLETE（name、mainImageUrl、description 缺少或空白）、
+            PRODUCT_PRICE_INVALID（price <= 0 或 price < costPrice）、PRODUCT_STOCK_INVALID（stock <= 0）、
+            CATEGORY_NOT_FOUND、CATEGORY_DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/admin/products/{id}/stock-adjustments:
+    post:
+      summary: 調整商品庫存
+      description: |
+        對單一商品增加（quantity > 0）或減少（quantity < 0）庫存，成功時寫一筆 product_stock_log。
+        狀態：ON_SHELF 扣到 0 變 SOLD_OUT；SOLD_OUT 補貨回 ON_SHELF（on_shelf_time 不變）；DRAFT、OFF_SHELF 不變。
+        同時扣同一商品不會超扣：庫存不足的請求回 422 PRODUCT_STOCK_INSUFFICIENT。
+        檢查順序（回傳第一個不通過的）：X-Operator → quantity → reason → 商品存在 → 庫存不足 → 超過上限。
+      operationId: adjustProductStock
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/Operator'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentRequest'
+      responses:
+        '200':
+          description: 成功，data 為調整後的商品
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: |
+            INVALID_REQUEST（缺少 X-Operator）、STOCK_QUANTITY_INVALID（quantity 缺少或為 0）、
+            STOCK_REASON_INVALID（reason 缺少、空白或超過 100 字）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: 商品不存在（PRODUCT_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '422':
+          description: |
+            PRODUCT_STOCK_INSUFFICIENT（扣超過現有庫存）、PRODUCT_STOCK_OVERFLOW（調整後超過 2147483647）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/storefront/products:
+    get:
+      summary: 前台商品列表
+      description: |
+        消費者瀏覽用，不需登入、不需 X-Operator；唯讀，不改動 DB。
+        只列「上架中（ON_SHELF）且所屬分類啟用」的商品；草稿、已下架、已售完、分類停用的商品不出現。
+        參數都選填：page（從 1 開始，預設 1）、size（預設 20，上限 50）、sort（latest 預設／price_asc／price_desc）、
+        categoryId（只看該分類；分類不存在或停用回空列表）、keyword（名稱包含、不分大小寫；空白視為沒帶）。
+        排序：latest 依 onShelfTime 新到舊；price_asc 價格低到高；price_desc 價格高到低；同值一律依 id 新到舊。
+        page 超出最後一頁回空 items，total 不變。
+        每筆只含 id、name、price、mainImageUrl、categoryName、stockStatus、remaining；
+        不含 sku、costPrice、stock 與其他欄位。
+        stockStatus：庫存 1～9 為 LOW_STOCK，remaining 為剩餘數；庫存 10 以上為 IN_STOCK，remaining 為 null。
+      operationId: listStorefrontProducts
+      # 參數只寫 string、不寫範圍與 enum：不合格的值（page=0、size=51、sort=xxx、categoryId=abc）
+      # 要由服務檢查並回 400 INVALID_REQUEST，規格寫了範圍會讓測試的請求驗證先擋下（同 ProductCreateRequest 的做法）。
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 正整數，從 1 開始，預設 1
+          schema:
+            type: string
+        - name: size
+          in: query
+          required: false
+          description: 正整數，每頁筆數，預設 20，上限 50
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          description: latest（預設）、price_asc、price_desc；其他值回 400
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          required: false
+          description: 正整數；只看該分類
+          schema:
+            type: string
+        - name: keyword
+          in: query
+          required: false
+          description: 名稱包含，不分大小寫；空白視為沒帶
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功，data 為分頁結果（items 可為空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProductPageResponse'
+        '400':
+          description: INVALID_REQUEST（page、size、categoryId 不是正整數，size 超過 50，sort 不認得）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/storefront/products/{id}:
+    get:
+      summary: 前台商品詳情
+      description: |
+        不需登入、不需 X-Operator；唯讀，不改動 DB。
+        可見條件同前台列表（ON_SHELF 且分類啟用）。回傳列表欄位加 description。
+        看不到的商品（不存在、id 不是數字、草稿、已下架、已售完、分類停用）一律回 404、
+        code = PRODUCT_NOT_FOUND、message =「找不到商品」，回應內容完全相同，不透露原因。
+        （後台 PRODUCT_NOT_FOUND 的訊息維持「商品不存在」，不受影響。）
+      operationId: getStorefrontProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 商品 id；刻意宣告為 string，讓非數字的 id 也能走到 404 而不是被請求驗證擋成 400
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功，data 為商品詳情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProductDetailResponse'
+        '404':
+          description: 找不到商品（PRODUCT_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  parameters:
+    ProductId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    Operator:
+      name: X-Operator
+      in: header
+      required: true
+      description: 操作人
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: 失敗；code 為 ErrorCode 的名稱
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+
+  # 回應一律是 ApiResponse 的包裝：{ code, message, data }。
+  # 成功回應每種 data 寫一個 XxxResponse（不要用 allOf，驗證器會把 code、message 判成多餘欄位）。
+  schemas:
+    ApiResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 成功為 OK；失敗為 ErrorCode 的名稱
+        message:
+          type: string
+        data:
+          nullable: true
+
+    ProductResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: string
+          enum: [OK]
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Product'
+
+    ProductListResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: string
+          enum: [OK]
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductListItem'
+
+    ProductListItem:
+      type: object
+      description: 列表每筆；不含 description、costPrice、createTime
+      additionalProperties: false
+      required: [id, sku, categoryId, price, stock, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        sku:
+          type: string
+        name:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+        price:
+          type: number
+        stock:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+        mainImageUrl:
+          type: string
+          nullable: true
+        onShelfTime:
+          type: string
+          nullable: true
+          description: 例 2026-11-11T10:00:00（Asia/Taipei）；沒上架過為 null
+        updateTime:
+          type: string
+          nullable: true
+
+    StorefrontProductPageResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: string
+          enum: [OK]
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, size, total]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/StorefrontProductItem'
+            page:
+              type: integer
+            size:
+              type: integer
+            total:
+              type: integer
+              format: int64
+              description: 符合條件的商品總數（不受分頁影響）
+
+    StorefrontProductDetailResponse:
+      type: object
+      required: [code, message, data]
+      properties:
+        code:
+          type: string
+          enum: [OK]
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/StorefrontProductDetail'
+
+    StorefrontProductItem:
+      type: object
+      description: 前台列表每筆；不含 sku、costPrice、stock、description 與其他欄位
+      additionalProperties: false
+      required: [id, name, price, categoryName, stockStatus, remaining]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: number
+        mainImageUrl:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+        stockStatus:
+          $ref: '#/components/schemas/StockStatus'
+        remaining:
+          type: integer
+          nullable: true
+          description: stockStatus 為 LOW_STOCK 時是剩餘數（1～9），IN_STOCK 時為 null
+
+    StorefrontProductDetail:
+      type: object
+      description: 前台詳情；列表欄位加 description
+      additionalProperties: false
+      required: [id, name, price, categoryName, stockStatus, remaining, description]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: number
+        mainImageUrl:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+        stockStatus:
+          $ref: '#/components/schemas/StockStatus'
+        remaining:
+          type: integer
+          nullable: true
+        description:
+          type: string
+
+    StockStatus:
+      type: string
+      description: 庫存 1～9 為 LOW_STOCK（只剩 N），10 以上為 IN_STOCK（有庫存）
+      enum: [IN_STOCK, LOW_STOCK]
+
+    ProductStatus:
+      type: string
+      enum: [DRAFT, ON_SHELF, OFF_SHELF, SOLD_OUT]
+
+    StockAdjustmentRequest:
+      type: object
+      description: |
+        必填、不可為 0、長度限制由服務檢查並回 400，
+        這裡只寫型別，讓故意送錯的請求能通過測試的規格驗證。
+      properties:
+        quantity:
+          type: integer
+          format: int32
+          description: 調整量，正數加、負數扣；必填，不可為 0
+        reason:
+          type: string
+          nullable: true
+          description: 調整原因；必填，不可只有空白，最多 100 字元
+
+    ProductCreateRequest:
+      type: object
+      description: |
+        必填（sku、categoryId、price）、格式、長度、數值限制由服務檢查並回 400，
+        這裡只寫型別，讓故意送錯的請求能通過測試的規格驗證。
+      properties:
+        sku:
+          type: string
+          nullable: true
+          description: 必填；不可空白，最多 64 字元，不可與既有商品重複
+        name:
+          type: string
+          nullable: true
+          description: 最多 200 字元
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 必填；分類必須存在且啟用
+        price:
+          type: number
+          nullable: true
+          description: 必填；不可為負，最多兩位小數
+        costPrice:
+          type: number
+          nullable: true
+          description: 不可為負，最多兩位小數；沒傳為 0
+        mainImageUrl:
+          type: string
+          nullable: true
+          description: 最多 500 字元
+        description:
+          type: string
+          nullable: true
+
+    ProductUpdateRequest:
+      type: object
+      description: |
+        只改有傳的欄位；至少要有一個可編輯欄位。null、空字串、只有空白的 name、mainImageUrl、description 表示清空。
+        sku、stock、status 不可編輯，帶了回 400；
+        這裡列出它們只是讓故意送錯的請求能通過測試的規格驗證。
+      properties:
+        name:
+          type: string
+          nullable: true
+          description: 最多 200 字元
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 不可為 null；分類必須存在且啟用
+        price:
+          type: number
+          nullable: true
+          description: 不可為 null、不可為負，最多兩位小數
+        costPrice:
+          type: number
+          nullable: true
+          description: 不可為負，最多兩位小數
+        mainImageUrl:
+          type: string
+          nullable: true
+          description: 最多 500 字元
+        description:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+          description: 不可編輯，帶了回 400
+        stock:
+          type: integer
+          nullable: true
+          description: 不可編輯，帶了回 400
+        status:
+          type: string
+          nullable: true
+          description: 不可編輯，帶了回 400
+
+    Product:
+      type: object
+      required: [id, sku, categoryId, price, costPrice, stock, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        sku:
+          type: string
+        name:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+        price:
+          type: number
+        costPrice:
+          type: number
+        stock:
+          type: integer
+        mainImageUrl:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+        onShelfTime:
+          type: string
+          nullable: true
+          description: 例 2026-11-11T10:00:00（Asia/Taipei）
+        createTime:
+          type: string
+          nullable: true
+        updateTime:
+          type: string
+          nullable: true

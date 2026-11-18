@@ -1,0 +1,6 @@
+/* 測試報告（target/reports/surefire.html）的樣式覆寫：表格內容跟標題一樣置中 */
+table.table th,
+table.table td {
+  text-align: center;
+  vertical-align: middle;
+}
